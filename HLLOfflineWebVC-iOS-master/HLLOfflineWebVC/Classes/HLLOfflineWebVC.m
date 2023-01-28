@@ -63,12 +63,14 @@ DEBUG_CODE(@property(nonatomic, strong) HLLOfflineWebDevTool *webDevTool;)
                                      code:0
                                    errMsg:@""];
     if (bisName != nil && [bisName length] > 0) {
+        /// 获取本地的H5 资源包地址 index.html路径
         NSURL *fileUrl = [[HLLOfflineWebPackage getInstance] getFileURL:[NSURL URLWithString:url]];
-        if (fileUrl == nil) {
+        if (fileUrl == nil) { /// 如果本地没有 则加载线上H5
             [self _hllofflineWebVc_load:[NSURL URLWithString:url]];
-        } else {
+        } else { // 有则加载本地H5
             [self _hllofflineWebVc_load:fileUrl];
         }
+        // 加载完成后, 检查资源, 根据结果决定刷新时机
         dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(1.0 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
             [[HLLOfflineWebPackage getInstance]
                 checkUpdate:bisName

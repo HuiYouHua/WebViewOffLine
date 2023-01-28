@@ -81,6 +81,7 @@
     };
 }
 
+// 将json 文件中的 rules 中的每条数据转成Array<HLLWebCacheItem> 返回出去
 + (NSArray *)requestCacheConf:(NSDictionary *)baseConfig {
     NSDictionary *conf = baseConfig;
     NSMutableArray *tempArr = [NSMutableArray array];

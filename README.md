@@ -48,7 +48,55 @@
                   2. 如果 cur 目录存在，则移除 new 目录下文件，将 temp 目录下文件移动到 new 目录下（后续全量下载新版本文件）
                3. 移除压缩包文件
 
+5. 打开webView
 
+   1. 设置`  [self.webView.configuration.preferences setValue:@YES forKey:@"allowFileAccessFromFileURLs"];`允许加载file URL的页面
+
+   2. 重写父类实现的`shouldStartLoadWithRequest`可控制是否加载当前URL，子类实现离线包和URL映射配置化
+
+      1. 根据配置和请求的 URL 生成新的url【配置可以通过网络下发】
+
+         1. 地址中包含有 `/#/`
+
+            1. 获取 host 匹配、path 匹配、fragmentprefixs匹配 的offweb 资源名
+            2. 修改 url，有offweb 字段则替换，没有则在 url 中添加
+
+         2. 地址中包含有 `#/`，但不包含 `/#/`
+
+            1. 同上
+
+         3. 正常 H5页面，即不带 `#`
+
+            1. 获取 host 匹配、path 匹配 的offweb 资源名
+
+            2. 如果 url 自带 `offweb=`，则直接替换掉，将上面匹配到的 offweb 字段进行替换 url 中的
+
+            3. 如果 url 中没有 `offweb=`，则直接在 url 中添加
+
+            4. ```
+               比如 请求的地址是: https://www.baidu.com/testapp?offweb=act3-offline-package-test
+               
+               它的 rules 是：
+               {
+                   "rules" :[
+                       {
+                           "host" :[
+                               "baidu.com" ,
+                               "test2.zzz.cn"
+                           ],
+                           "path" :[
+                               "/testapp"
+                           ],
+                           "offweb" : "test-offline1"
+                       },
+                   ]
+               }
+               
+               这里的 host、path都匹配上了
+               那么就去取 offweb 叫 test-offline1 的本地资源
+               ```
+
+      2. 加载本地H5 资源，如果没有加载原始的URL 地址
 
 
 
