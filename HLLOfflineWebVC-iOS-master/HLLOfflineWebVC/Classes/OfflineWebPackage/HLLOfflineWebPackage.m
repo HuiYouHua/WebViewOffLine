@@ -63,7 +63,7 @@
     if (self.disalbleFlag) {
         return nil;
     }
-
+    
     NSURL *nsurl = [NSURL URLWithString:str];
     NSString *paramsStr = nsurl.query;
     NSMutableDictionary *paramsDict = [NSMutableDictionary dictionary];
@@ -79,14 +79,17 @@
     if (paramsDict[@"offweb"] && [self.disableBisList containsObject:paramsDict[@"offweb"]]) {
         return nil;
     }
-
+    
     return paramsDict[@"offweb"];
 }
 
+// 获取当前url对应的本地离线包中的index.html路径
 - (NSURL *)getFileURL:(NSURL *)webUrl {
     NSString *query = webUrl.query;
     NSString *host = webUrl.host;
+    // 获取离线包名称
     NSString *bisName = [self getOffWebBisName:webUrl.absoluteString];
+    /// 将new 文件夹 移动到 cur 文件夹
     [HLLOfflineWebFileMgr doNewFolder2CurFolder:bisName];
     NSString *filePath = [HLLOfflineWebFileMgr getPath:bisName];
     NSFileManager *fileManager = [NSFileManager defaultManager];
@@ -95,7 +98,7 @@
         self.logBlock(HLLOfflineWebLogLevelWarning, bisName, @"no local offweb file!");
         return nil;
     }
-
+    
     filePath = [NSString stringWithFormat:@"file://%@", filePath];
     if (query && [query length] > 0 && ![query containsString:@"offweb_host="]) {
         query = [query stringByAppendingFormat:@"&offweb_host=%@", host];
@@ -106,79 +109,76 @@
         //没有frament参数时就不拼
         filePath = [filePath stringByAppendingFormat:@"?%@", query];
     }
-
+    
     return [NSURL URLWithString:filePath];
 }
 
-/**
- 参数名    参数含义    备注
- os    终端类型    iOS，Android
- clientVersion    客户端版本    例如：1.0.0
- bisName    业务名，每个页面的离线包独立    例如：act3-offline-package-test
- offlineZipVer    本地离线包版本    自定义参数，0表示本地无
-
- 查询结果返回结果为json，参数说明：
- 参数名    参数含义    备注
- bisName    业务名    例如：act3-offline-package-test
- result    结果    -1 禁用离线包 0 无更新 1 有新离线包
- url    离线包（zip压缩包）下载地址    没有时为空字符串
- refreshMode    刷新模式    0 下次刷新（默认） 1 马上强制刷新（极端情况下使用）
- version    离线包版本    例如：25609-j56gfa
- */
+/// 离线包更新检查接口
+/// - Parameters:
+///   - bisName: 离线包业务名
+///   - resultBlock: 结果回调
 - (void)checkUpdate:(NSString *)bisName result:(HLLOfflineWebResultBlock)resultBlock {
-    if (self.disalbleFlag) {
+    if (self.disalbleFlag) { //禁用离线功能
         resultBlock(HLLOfflineWebDisable, @"disable ALL offweb!");
         return;
     }
-
-    if ([self.disableBisList containsObject:bisName]) {
+    
+    if ([self.disableBisList containsObject:bisName]) { //包含禁用离线包业务
         resultBlock(HLLOfflineWebDisable, @"disable current!");
         return;
     }
-
-    if (!bisName || bisName.length == 0) {
+    
+    if (!bisName || bisName.length == 0) { // 判空
         resultBlock(HLLOfflineWebParseError, @"bisName is nil");
         return;
     }
-
+    
     NSMutableDictionary *reportdict = [NSMutableDictionary dictionary];
     [reportdict setValue:bisName forKey:@"bisName"];
-        CFAbsoluteTime startQueryTime = CFAbsoluteTimeGetCurrent();
-        NSString *offwebcurVer = [HLLOfflineWebFileMgr getDiskCurVersion:bisName];
-        // 构造请求URL
-        NSString *urlStr = [[NSString alloc] initWithFormat:@"%@?bisName=%@&os=iOS&offlineZipVer=%@&clientVersion=%@",
-                                                            CHECK_UPDATE_URL, bisName, offwebcurVer, self.appVersion];
-        if (self.env && [self.env length] > 0) {
-            urlStr = [urlStr stringByAppendingFormat:@"&env=%@", self.env];
+    CFAbsoluteTime startQueryTime = CFAbsoluteTimeGetCurrent();
+    // 离线包版本号
+    NSString *offwebcurVer = [HLLOfflineWebFileMgr getDiskCurVersion:bisName];
+    // 构造请求URL, 查询离线包状态
+    /**
+     参数名    参数含义    备注
+     bisName    业务名，每个页面的离线包独立    例如：act3-offline-package-test
+     os    终端类型    iOS，Android
+     offlineZipVer    本地离线包版本    自定义参数，0表示本地无
+     clientVersion    客户端版本    例如：1.0.0
+     **/
+    NSString *urlStr = [[NSString alloc] initWithFormat:@"%@?bisName=%@&os=iOS&offlineZipVer=%@&clientVersion=%@",
+                        CHECK_UPDATE_URL, bisName, offwebcurVer, self.appVersion];
+    if (self.env && [self.env length] > 0) {
+        urlStr = [urlStr stringByAppendingFormat:@"&env=%@", self.env];
+    }
+    NSURL *url = [NSURL URLWithString:urlStr];
+    NSMutableURLRequest *request = [NSMutableURLRequest requestWithURL:url];
+    NSURLSession *session = [NSURLSession sharedSession];
+    NSURLSessionDataTask *dataTask = [session
+                                      dataTaskWithRequest:request
+                                      completionHandler:^(NSData *_Nullable data, NSURLResponse *_Nullable response, NSError *_Nullable error) {
+        // 解析数据
+        int queryCostTime = (CFAbsoluteTimeGetCurrent() - startQueryTime) * 1000;
+        [reportdict setObject:[NSNumber numberWithInt:queryCostTime] forKey:@"queryTime"];
+        [HLLOfflineWebFileMgr deleteOldFolder:bisName];
+        if (!error) {
+            [self parseCheckRspData:bisName data:data resultBlock:resultBlock reportdict:reportdict];
+        } else {
+            [self callbackMainThread:resultBlock Ret:HLLOfflineWebQueryError Msg:error.description];
+            self.logBlock(HLLOfflineWebLogLevelError, bisName,
+                          [NSString stringWithFormat:@"checkupate network err msg:%@", error.description]);
+            [reportdict setValue:[NSNumber numberWithInt:-1] forKey:@"queryResult"];
+            [reportdict setValue:error.description forKey:@"queryMsg"];
+            [self downloadDatareport:1
+                                 msg:@"query fail,no download"
+                        downloadTime:0
+                                dict:reportdict]; //查询失败，无需下载
         }
-        NSURL *url = [NSURL URLWithString:urlStr];
-        NSMutableURLRequest *request = [NSMutableURLRequest requestWithURL:url];
-        NSURLSession *session = [NSURLSession sharedSession];
-        NSURLSessionDataTask *dataTask = [session
-            dataTaskWithRequest:request
-              completionHandler:^(NSData *_Nullable data, NSURLResponse *_Nullable response, NSError *_Nullable error) {
-                  // 解析数据
-                  int queryCostTime = (CFAbsoluteTimeGetCurrent() - startQueryTime) * 1000;
-                  [reportdict setObject:[NSNumber numberWithInt:queryCostTime] forKey:@"queryTime"];
-                  [HLLOfflineWebFileMgr deleteOldFolder:bisName];
-                  if (!error) {
-                      [self parseCheckRspData:bisName data:data resultBlock:resultBlock reportdict:reportdict];
-                  } else {
-                      [self callbackMainThread:resultBlock Ret:HLLOfflineWebQueryError Msg:error.description];
-                      self.logBlock(HLLOfflineWebLogLevelError, bisName,
-                                    [NSString stringWithFormat:@"checkupate network err msg:%@", error.description]);
-                      [reportdict setValue:[NSNumber numberWithInt:-1] forKey:@"queryResult"];
-                      [reportdict setValue:error.description forKey:@"queryMsg"];
-                      [self downloadDatareport:1
-                                           msg:@"query fail,no download"
-                                  downloadTime:0
-                                          dict:reportdict]; //查询失败，无需下载
-                  }
-              }];
-
-        [dataTask resume];
-        self.logBlock(HLLOfflineWebLogLevelInfo, bisName, [NSString stringWithFormat:@"check update,url: %@", urlStr]);
-
+    }];
+    
+    [dataTask resume];
+    self.logBlock(HLLOfflineWebLogLevelInfo, bisName, [NSString stringWithFormat:@"check update,url: %@", urlStr]);
+    
     
 }
 
@@ -192,25 +192,31 @@
         self.logBlock(HLLOfflineWebLogLevelError, bisName, @"data = nil");
         return;
     }
-
+    
     NSString *rspStr = [[NSString alloc] initWithData:data encoding:NSUTF8StringEncoding];
-
+    
     self.logBlock(HLLOfflineWebLogLevelInfo, bisName, rspStr);
-
+    
     NSDictionary *dict = [NSJSONSerialization JSONObjectWithData:data options:NSJSONReadingMutableLeaves error:nil];
+    
+    // bisName    业务名    例如：act3-offline-package-test
     NSString *rspbisName = [dict objectForKey:@"bisName"];
+    // result    结果    -1 禁用离线包 0 无更新 1 有新离线包
     int result = [[dict objectForKey:@"result"] intValue];
+    // url    离线包（zip压缩包）下载地址    没有时为空字符串
     NSString *url = [dict objectForKey:@"url"];
+    // version    离线包版本    例如：25609-j56gfa
     NSString *version = [dict objectForKey:@"version"]; // offlineZipVer
+    // refreshMode    刷新模式    0 下次刷新（默认） 1 马上强制刷新（极端情况下使用）
     int refreshMode = [[dict objectForKey:@"refreshMode"] intValue];
-
+    
     [reportdict setValue:[NSNumber numberWithInt:0] forKey:@"queryResult"];
     [reportdict setValue:[[NSString alloc] initWithData:data encoding:NSUTF8StringEncoding] forKey:@"queryMsg"];
-
+    
     if ([bisName isEqualToString:rspbisName]) {
-        if (result > 0) {
+        if (result > 0) { // 有新离线包
             NSString *newVersion = [HLLOfflineWebFileMgr getDiskNewVersion:bisName];
-            if ([newVersion isEqualToString:version]) {
+            if ([newVersion isEqualToString:version]) { // 请求到的版本 和 本地版本一致,无需更新
                 //如果本地已经有下载好的版本，不重复下载
                 if (refreshMode == 0) {
                     [self callbackMainThread:resultBlock
@@ -223,37 +229,38 @@
                                          Msg:@"本地已有下好版本，立刻生效"];
                     self.logBlock(HLLOfflineWebLogLevelInfo, bisName, @"本地已有下好版本，立刻生效");
                 }
-
+                
                 [self downloadDatareport:1
                                      msg:@"NewFolder == online version"
                             downloadTime:0
                                     dict:reportdict]; //本地已有，无需下载
                 return;
             }
-
+            
+            // 需要下载并解压
             [self dowloadAndUnzip:bisName
                           Version:version
                               Url:url
                            result:^(HLLOfflineWebResultEvent result, NSString *msg) {
-                               if (result == HLLOfflineWebUnzipSuccess) {
-                                   if (refreshMode == 0) {
-                                       [self callbackMainThread:resultBlock
-                                                            Ret:HLLOfflineWebRefreshPackageLater
-                                                            Msg:@"解压成功，下次生效"];
-                                       self.logBlock(HLLOfflineWebLogLevelInfo, bisName, @"unzip success.act Next");
-                                   } else if (refreshMode == 1) {
-                                       [self callbackMainThread:resultBlock
-                                                            Ret:HLLOfflineWebRefreshPackageNow
-                                                            Msg:@"解压成功，马上生效"];
-                                       self.logBlock(HLLOfflineWebLogLevelInfo, bisName, @"unzip success.act Now");
-                                   }
-                               } else {
-                                   [self callbackMainThread:resultBlock Ret:result Msg:msg];
-                                   self.logBlock(HLLOfflineWebLogLevelError, bisName, @"unzip fail!");
-                               }
-                           }
+                if (result == HLLOfflineWebUnzipSuccess) {
+                    if (refreshMode == 0) {
+                        [self callbackMainThread:resultBlock
+                                             Ret:HLLOfflineWebRefreshPackageLater
+                                             Msg:@"解压成功，下次生效"];
+                        self.logBlock(HLLOfflineWebLogLevelInfo, bisName, @"unzip success.act Next");
+                    } else if (refreshMode == 1) {
+                        [self callbackMainThread:resultBlock
+                                             Ret:HLLOfflineWebRefreshPackageNow
+                                             Msg:@"解压成功，马上生效"];
+                        self.logBlock(HLLOfflineWebLogLevelInfo, bisName, @"unzip success.act Now");
+                    }
+                } else {
+                    [self callbackMainThread:resultBlock Ret:result Msg:msg];
+                    self.logBlock(HLLOfflineWebLogLevelError, bisName, @"unzip fail!");
+                }
+            }
                              Dict:reportdict];
-
+            
         } else if (result == 0) {
             self.logBlock(HLLOfflineWebLogLevelInfo, bisName, @"no new zip");
             [self callbackMainThread:resultBlock Ret:HLLOfflineWebNoUpdate Msg:@"线上无新包"];
@@ -271,6 +278,14 @@
     }
 }
 
+
+/// 下载离线包
+/// - Parameters:
+///   - bisName: 离线包名称
+///   - version: 离线包版本号
+///   - urlStr: 下载地址
+///   - resultBlock: 结果回调
+///   - reportdict: 日志参数
 - (void)dowloadAndUnzip:(NSString *)bisName
                 Version:(NSString *)version
                     Url:(NSString *)urlStr
@@ -279,63 +294,63 @@
     __weak typeof(self) weakSelf = self;
     CFAbsoluteTime startDownloadTime = CFAbsoluteTimeGetCurrent();
     [self.downloadMgr
-            downloadZip:bisName
-                version:version
-                    url:urlStr
-                 result:^(HLLOfflineWebResultEvent result, NSString *msg) {
-                     __strong typeof(self) strongself = weakSelf;
-                     int downloadCostTime = (int)(CFAbsoluteTimeGetCurrent() - startDownloadTime) * 1000;
-                     if (result == HLLOfflineWebDownloadSuccess) {
-                         NSString *zipPath = msg;
-                         int fileSize = [HLLOfflineWebFileUtil getFileSize:zipPath];
-                         CFAbsoluteTime startUnZipTime = CFAbsoluteTimeGetCurrent();
-                         [HLLOfflineWebFileMgr
-                             doZiptoNewFolder:bisName
-                                          Zip:zipPath
-                                       Result:^(HLLOfflineWebResultEvent zipResult, NSString *zipMsg) {
-                                           if (!strongself) {
-                                               return;
-                                           }
-
-                                           strongself.logBlock(
-                                               zipResult == HLLOfflineWebUnzipSuccess ? HLLOfflineWebLogLevelInfo
-                                                                                       : HLLOfflineWebLogLevelError,
-                                               bisName, [NSString stringWithFormat:@"zip result:%@", zipMsg]);
-                                           int unzipCostTime =
-                                               (int)(CFAbsoluteTimeGetCurrent() - startUnZipTime) * 1000;
-                                           [reportdict setValue:[NSNumber numberWithInt:(zipResult ==
-                                                                                         HLLOfflineWebUnzipSuccess)
-                                                                                            ? 0
-                                                                                            : -1]
-                                                         forKey:@"unzipResult"];
-                                           [reportdict setValue:[NSNumber numberWithInt:unzipCostTime]
-                                                         forKey:@"unzipTime"];
-                                           [reportdict setValue:zipMsg forKey:@"unzipMsg"];
-                                           [reportdict setValue:[NSNumber numberWithInt:fileSize] forKey:@"zipSize"];
-
-                                           [strongself downloadDatareport:0
-                                                                      msg:@"download success"
-                                                             downloadTime:downloadCostTime
-                                                                     dict:reportdict];
-                                           if (strongself.downloadSDKType == HLLOfflineWebDownloadTypeSystemAPI) {
-                                               NSFileManager *fileManager = [NSFileManager defaultManager];
-                                               [fileManager removeItemAtPath:zipPath error:nil]; // del zip包
-                                           } else {
-                                               // [weakSelf.downloadMgr delSDKZip:urlStr];
-                                           }
-                                           strongself.logBlock(HLLOfflineWebLogLevelInfo, bisName, @"del zip");
-                                           resultBlock(zipResult, zipMsg);
-                                       }];
-                     } else {
-                         self.logBlock(HLLOfflineWebLogLevelError, bisName, @"download fail!");
-                         resultBlock(result, msg);
-                         [self downloadDatareport:-1
-                                              msg:@"download fail"
-                                     downloadTime:downloadCostTime
-                                             dict:reportdict];
-                     }
-                 }
-        downloadSDKType:self.downloadSDKType]; //下载sdk选择
+     downloadZip:bisName
+     version:version
+     url:urlStr
+     result:^(HLLOfflineWebResultEvent result, NSString *msg) {
+        __strong typeof(self) strongself = weakSelf;
+        int downloadCostTime = (int)(CFAbsoluteTimeGetCurrent() - startDownloadTime) * 1000;
+        if (result == HLLOfflineWebDownloadSuccess) {
+            NSString *zipPath = msg;
+            int fileSize = [HLLOfflineWebFileUtil getFileSize:zipPath];
+            CFAbsoluteTime startUnZipTime = CFAbsoluteTimeGetCurrent();
+            [HLLOfflineWebFileMgr
+             doZiptoNewFolder:bisName
+             Zip:zipPath
+             Result:^(HLLOfflineWebResultEvent zipResult, NSString *zipMsg) {
+                if (!strongself) {
+                    return;
+                }
+                
+                strongself.logBlock(
+                                    zipResult == HLLOfflineWebUnzipSuccess ? HLLOfflineWebLogLevelInfo
+                                    : HLLOfflineWebLogLevelError,
+                                    bisName, [NSString stringWithFormat:@"zip result:%@", zipMsg]);
+                int unzipCostTime =
+                (int)(CFAbsoluteTimeGetCurrent() - startUnZipTime) * 1000;
+                [reportdict setValue:[NSNumber numberWithInt:(zipResult ==
+                                                              HLLOfflineWebUnzipSuccess)
+                                      ? 0
+                                                            : -1]
+                              forKey:@"unzipResult"];
+                [reportdict setValue:[NSNumber numberWithInt:unzipCostTime]
+                              forKey:@"unzipTime"];
+                [reportdict setValue:zipMsg forKey:@"unzipMsg"];
+                [reportdict setValue:[NSNumber numberWithInt:fileSize] forKey:@"zipSize"];
+                
+                [strongself downloadDatareport:0
+                                           msg:@"download success"
+                                  downloadTime:downloadCostTime
+                                          dict:reportdict];
+                if (strongself.downloadSDKType == HLLOfflineWebDownloadTypeSystemAPI) {
+                    NSFileManager *fileManager = [NSFileManager defaultManager];
+                    [fileManager removeItemAtPath:zipPath error:nil]; // del zip包
+                } else {
+                    // [weakSelf.downloadMgr delSDKZip:urlStr];
+                }
+                strongself.logBlock(HLLOfflineWebLogLevelInfo, bisName, @"del zip");
+                resultBlock(zipResult, zipMsg);
+            }];
+        } else {
+            self.logBlock(HLLOfflineWebLogLevelError, bisName, @"download fail!");
+            resultBlock(result, msg);
+            [self downloadDatareport:-1
+                                 msg:@"download fail"
+                        downloadTime:downloadCostTime
+                                dict:reportdict];
+        }
+    }
+     downloadSDKType:self.downloadSDKType]; //下载sdk选择
 }
 
 - (void)downloadDatareport:(int)result

@@ -16,6 +16,9 @@ NS_INLINE void HLLOfflineWebFileMgr_offlineWebLog(HLLOfflineWebLogLevel level, N
 
 @implementation HLLOfflineWebFileMgr
 
+
+/// 获取离线包本地路径
+/// - Parameter bisName: 离线包名称
 + (NSString *)getOfflineWebStorePath:(NSString *)bisName {
     NSString *documentPath =
         NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES).firstObject;
@@ -44,6 +47,7 @@ NS_INLINE void HLLOfflineWebFileMgr_offlineWebLog(HLLOfflineWebLogLevel level, N
         HLLOfflineWebFileMgr_offlineWebLog(HLLOfflineWebLogLevelWarning, bisName, @"del temp folder");
     }
 
+    // 解压到 temp 目录下
     [HLLOfflineWebFileUtil
         unzipLocalFile:zipPath
                    dst:tempFolder
@@ -64,6 +68,9 @@ NS_INLINE void HLLOfflineWebFileMgr_offlineWebLog(HLLOfflineWebLogLevel level, N
                 }];
 }
 
+
+/// 删除老的资源
+/// - Parameter bisName: 资源名
 + (void)deleteOldFolder:(NSString *)bisName {
     NSString *storePath = [self getOfflineWebStorePath:bisName];
     NSString *oldFolder = [storePath stringByAppendingString:@"/old"];
@@ -146,9 +153,16 @@ NS_INLINE void HLLOfflineWebFileMgr_offlineWebLog(HLLOfflineWebLogLevel level, N
     }
 }
 
+/// 离线包资源包大包时加入版本描述文件".offweb.json",格式为： { "bisName": "xxx", "ver": "xxx" }
+/// 比如 act3-offline-package-test 这个离线包
+/// 在其子目录的 /cur/ 文件夹下有个 .offweb.json 文件, 记录该离线包资源的版本等描述信息
+
+/// 根据离线包名称 获取当前离线包版本号
+/// - Parameter bisName: 离线包名称
 + (NSString *)getDiskCurVersion:(NSString *)bisName {
     NSFileManager *fileManager = [NSFileManager defaultManager];
     NSString *storePath = [self getOfflineWebStorePath:bisName];
+    //获取离线包版本描述文件沙盒路径
     NSString *curVerPath = [storePath stringByAppendingString:@"/cur/.offweb.json"];
     if ([fileManager fileExistsAtPath:curVerPath]) {
         NSData *jsonData = [[NSData alloc] initWithContentsOfFile:curVerPath];
@@ -173,6 +187,8 @@ NS_INLINE void HLLOfflineWebFileMgr_offlineWebLog(HLLOfflineWebLogLevel level, N
     return @"0";
 }
 
+/// 根据离线包名称 获取新离线包版本号
+/// - Parameter bisName: 离线包名称
 + (NSString *)getDiskNewVersion:(NSString *)bisName {
     NSFileManager *fileManager = [NSFileManager defaultManager];
     NSString *storePath = [self getOfflineWebStorePath:bisName];
