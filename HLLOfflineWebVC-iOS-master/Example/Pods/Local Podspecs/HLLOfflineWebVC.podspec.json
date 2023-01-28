@@ -1,0 +1,91 @@
+{
+  "name": "HLLOfflineWebVC",
+  "version": "1.0.0",
+  "summary": "HLLOfflineWebVC 包含展示的容器webvc及离线包管理工具. subspec仅用来分组功能类",
+  "description": "HUOLALA Offline WebVC SDK",
+  "homepage": "https://xxx.com",
+  "license": {
+    "type": "GPL",
+    "file": "LICENSE"
+  },
+  "authors": {
+    "货拉拉": "货拉拉"
+  },
+  "source": {
+    "git": " ",
+    "tag": "1.0.0"
+  },
+  "platforms": {
+    "ios": "9.0"
+  },
+  "pod_target_xcconfig": {
+    "ENABLE_BITCODE": "NO",
+    "EXCLUDED_ARCHS[sdk=iphonesimulator*]": "arm64",
+    "VALID_ARCHS": "arm64 armv7 x86_64"
+  },
+  "source_files": "HLLOfflineWebVC/Classes/*.{h,m}",
+  "subspecs": [
+    {
+      "name": "OfflineWebPackage",
+      "source_files": "HLLOfflineWebVC/Classes/OfflineWebPackage/*.{h,m}",
+      "dependencies": {
+        "HLLOfflineWebVC/OfflineWebConst": [
+
+        ],
+        "HLLOfflineWebVC/OfflineWebUtils": [
+
+        ],
+        "HLLOfflineWebVC/Private": [
+
+        ]
+      }
+    },
+    {
+      "name": "OfflineWebDevTool",
+      "source_files": "HLLOfflineWebVC/Classes/OfflineWebDevTool/*.{h,m}",
+      "dependencies": {
+        "HLLOfflineWebVC/OfflineWebPackage": [
+
+        ],
+        "HLLOfflineWebVC/OfflineWebConst": [
+
+        ],
+        "CRToast": [
+
+        ]
+      }
+    },
+    {
+      "name": "OfflineWebUtils",
+      "source_files": "HLLOfflineWebVC/Classes/OfflineWebUtils/*.{h,m}",
+      "dependencies": {
+        "HLLOfflineWebVC/OfflineWebConst": [
+
+        ],
+        "SSZipArchive": [
+
+        ]
+      }
+    },
+    {
+      "name": "OfflineWebBisNameMatch",
+      "source_files": "HLLOfflineWebVC/Classes/OfflineWebBisNameMatch/*.{h,m}"
+    },
+    {
+      "name": "Private",
+      "source_files": "HLLOfflineWebVC/Classes/Private/*.{h,m}",
+      "dependencies": {
+        "HLLOfflineWebVC/OfflineWebConst": [
+
+        ],
+        "HLLOfflineWebVC/OfflineWebUtils": [
+
+        ]
+      }
+    },
+    {
+      "name": "OfflineWebConst",
+      "source_files": "HLLOfflineWebVC/Classes/OfflineWebConst/*.{h,m}"
+    }
+  ]
+}

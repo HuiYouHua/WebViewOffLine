@@ -1,0 +1,58 @@
+PODS:
+  - CRToast (0.0.9)
+  - GCDWebServer (3.5.4):
+    - GCDWebServer/Core (= 3.5.4)
+  - GCDWebServer/Core (3.5.4)
+  - HLLOfflineWebVC (1.0.0):
+    - HLLOfflineWebVC/OfflineWebBisNameMatch (= 1.0.0)
+    - HLLOfflineWebVC/OfflineWebConst (= 1.0.0)
+    - HLLOfflineWebVC/OfflineWebDevTool (= 1.0.0)
+    - HLLOfflineWebVC/OfflineWebPackage (= 1.0.0)
+    - HLLOfflineWebVC/OfflineWebUtils (= 1.0.0)
+    - HLLOfflineWebVC/Private (= 1.0.0)
+  - HLLOfflineWebVC/OfflineWebBisNameMatch (1.0.0)
+  - HLLOfflineWebVC/OfflineWebConst (1.0.0)
+  - HLLOfflineWebVC/OfflineWebDevTool (1.0.0):
+    - CRToast
+    - HLLOfflineWebVC/OfflineWebConst
+    - HLLOfflineWebVC/OfflineWebPackage
+  - HLLOfflineWebVC/OfflineWebPackage (1.0.0):
+    - HLLOfflineWebVC/OfflineWebConst
+    - HLLOfflineWebVC/OfflineWebUtils
+    - HLLOfflineWebVC/Private
+  - HLLOfflineWebVC/OfflineWebUtils (1.0.0):
+    - HLLOfflineWebVC/OfflineWebConst
+    - SSZipArchive
+  - HLLOfflineWebVC/Private (1.0.0):
+    - HLLOfflineWebVC/OfflineWebConst
+    - HLLOfflineWebVC/OfflineWebUtils
+  - Masonry (1.1.0)
+  - SSZipArchive (2.4.3)
+
+DEPENDENCIES:
+  - CRToast (~> 0.0.7)
+  - GCDWebServer
+  - HLLOfflineWebVC (from `../`)
+  - Masonry (= 1.1.0)
+
+SPEC REPOS:
+  trunk:
+    - CRToast
+    - GCDWebServer
+    - Masonry
+    - SSZipArchive
+
+EXTERNAL SOURCES:
+  HLLOfflineWebVC:
+    :path: "../"
+
+SPEC CHECKSUMS:
+  CRToast: 5a78c22b921c5ed3487488af605bc403a9c92fed
+  GCDWebServer: 2c156a56c8226e2d5c0c3f208a3621ccffbe3ce4
+  HLLOfflineWebVC: 7dbe259962c4a9aa4270ca38b0c20333eb21cddd
+  Masonry: 678fab65091a9290e40e2832a55e7ab731aad201
+  SSZipArchive: fe6a26b2a54d5a0890f2567b5cc6de5caa600aef
+
+PODFILE CHECKSUM: 1bd3e8b687357bb109c06e32db8df65be1c298df
+
+COCOAPODS: 1.11.2
